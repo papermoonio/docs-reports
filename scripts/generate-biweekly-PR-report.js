@@ -17,7 +17,7 @@ const githubRepo = args['github-repo'];
 const authToken = process.env.GITHUB_AUTH_TOKEN;
 
 // Define the headers for the CSV file
-const fields = ['PR #', 'Status', 'Title', 'Link', 'Labels', 'Description', 'Date Merged'];
+const fields = ['PR #', 'Title', 'Status', 'Labels', 'Link', 'Description', 'Date Merged'];
 
 // Fetch the merged PRs from the last two weeks
 async function fetchMergedPRsForLastTwoWeeks() {
@@ -47,10 +47,10 @@ async function fetchMergedPRsForLastTwoWeeks() {
 
         prData.push({
           'PR #': pr.number,
-          Status: 'Merged', // Set merged PRs to "Merged" status
           Title: pr.title,
-          Link: pr.html_url,
+          Status: 'Merged', // Set merged PRs to "Merged" status
           Labels: labels,
+          Link: pr.html_url,
           Description: description,
           'Date Merged': pr.merged_at,
         });
@@ -88,10 +88,10 @@ async function fetchOpenPRs() {
 
       prData.push({
         'PR #': pr.number,
-        Status: 'Open', // Set open PRs to "Open" status
         Title: pr.title,
-        Link: pr.html_url,
+        Status: 'Open', // Set open PRs to "Open" status
         Labels: labels,
+        Link: pr.html_url,
         Description: description,
         'Date Merged': 'n/a', // Open PRs don't have a merge date
       });
