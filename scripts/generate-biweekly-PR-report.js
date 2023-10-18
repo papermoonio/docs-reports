@@ -1,6 +1,6 @@
 const axios = require('axios');
 const fs = require('fs');
-const path = require('path'); // Add this line
+const path = require('path');
 const yargs = require('yargs');
 const { Parser } = require('json2csv');
 const { subWeeks, startOfDay, format } = require('date-fns');
