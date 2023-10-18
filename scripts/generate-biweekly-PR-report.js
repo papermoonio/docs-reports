@@ -1,5 +1,6 @@
 const axios = require('axios');
 const fs = require('fs');
+const path = require('path');
 const yargs = require('yargs');
 const { Parser } = require('json2csv');
 const { subWeeks, startOfDay, format } = require('date-fns');
@@ -16,15 +17,7 @@ const githubRepo = args['github-repo'];
 const authToken = process.env.GITHUB_AUTH_TOKEN;
 
 // Define the headers for the CSV file
-const fields = [
-  'PR #',
-  'Status',
-  'Title',
-  'Link',
-  'Labels',
-  'Description',
-  'Date Merged',
-];
+const fields = ['PR #', 'Title', 'Status', 'Labels', 'Link', 'Description', 'Date Merged'];
 
 // Fetch the merged PRs from the last two weeks
 async function fetchMergedPRsForLastTwoWeeks() {
@@ -54,10 +47,10 @@ async function fetchMergedPRsForLastTwoWeeks() {
 
         prData.push({
           'PR #': pr.number,
-          Status: 'Merged', // Set merged PRs to "Merged" status
           Title: pr.title,
-          Link: pr.html_url,
+          Status: 'Merged', // Set merged PRs to "Merged" status
           Labels: labels,
+          Link: pr.html_url,
           Description: description,
           'Date Merged': pr.merged_at,
         });
@@ -95,10 +88,10 @@ async function fetchOpenPRs() {
 
       prData.push({
         'PR #': pr.number,
-        Status: 'Open', // Set open PRs to "Open" status
         Title: pr.title,
-        Link: pr.html_url,
+        Status: 'Open', // Set open PRs to "Open" status
         Labels: labels,
+        Link: pr.html_url,
         Description: description,
         'Date Merged': 'n/a', // Open PRs don't have a merge date
       });
@@ -133,12 +126,20 @@ async function main() {
 
   const allPRs = [...mergedPRs, ...openPRs];
 
+  // Create the 'csv_output' directory if it doesn't exist
+  const fileName = `${githubUsername}_${githubRepo}_biweekly_pr_report.csv`;
+  const outputPath = 'csv_output/' + fileName;
+  const outputDir = path.dirname(outputPath);
+  if (!fs.existsSync(outputDir)) {
+    fs.mkdirSync(outputDir, { recursive: true });
+  }
+
   if (allPRs.length > 0) {
     const parser = new Parser({ fields });
     const csv = parser.parse(allPRs);
 
-    fs.writeFileSync('csv_output/biweekly_pr_report.csv', csv);
-    console.log('CSV file created: biweekly_pr_report.csv');
+    fs.writeFileSync(outputPath, csv);
+    console.log(`CSV file created: ${fileName}`);
   } else {
     console.log('No PRs found in the specified time range.');
   }
