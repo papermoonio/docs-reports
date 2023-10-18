@@ -1,12 +1,18 @@
 const axios = require('axios');
 const fs = require('fs');
+const yargs = require('yargs');
 const { Parser } = require('json2csv');
 const { subWeeks, startOfDay, format } = require('date-fns');
 
 require('dotenv').config();
 
-const githubUsername = 'moonbeam-foundation';
-const githubRepo = 'moonbeam-docs';
+const args = yargs.options({
+  'github-username': { type: 'string', demandOption: true, alias: 'u' },
+  'github-repo': { type: 'string', demandOption: true, alias: 'r' },
+}).argv;
+
+const githubUsername = args['github-username'];
+const githubRepo = args['github-repo'];
 const authToken = process.env.GITHUB_AUTH_TOKEN;
 
 // Define the headers for the CSV file
@@ -126,7 +132,6 @@ async function main() {
   const openPRs = await fetchOpenPRs();
 
   const allPRs = [...mergedPRs, ...openPRs];
-
 
   if (allPRs.length > 0) {
     const parser = new Parser({ fields });
