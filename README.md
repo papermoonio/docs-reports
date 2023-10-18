@@ -4,7 +4,7 @@ Scripts for generating reports for documentation repos.
 
 ## Generate Biweekly PR Report
 
-To generate a biweekly report on the changes that have been made to the docs site, which includes the PRs merged within the last two weeks and all open PRs, you can use the `generate-biweekly-pr-report.js` script.
+To generate a biweekly report on the changes that have been made to the docs site, which includes the PRs merged within the last two weeks and all open PRs, you can use the `generate-biweekly-PR-report.js` script.
 
 To run the script, you will need to create a `.env` file. Your `.env` file will need to contain the same variables defined in the `.env.example` file.
 
@@ -16,7 +16,7 @@ The script accepts these inputs:
 Then you can run the script using the following command:
 
 ```bash
-node scripts/generate-biweekly-report.js -u INSERT_GITHUB_USERNAME -r INSERT_REPO_NAME
+node scripts/generate-biweekly-PR-report.js -u INSERT_GITHUB_USERNAME -r INSERT_REPO_NAME
 ```
 
 The output of the script will appear in the `csv_output` directory.
