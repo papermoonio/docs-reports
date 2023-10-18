@@ -1,5 +1,6 @@
 const axios = require('axios');
 const fs = require('fs');
+const path = require('path'); // Add this line
 const yargs = require('yargs');
 const { Parser } = require('json2csv');
 const { subWeeks, startOfDay, format } = require('date-fns');
@@ -16,15 +17,7 @@ const githubRepo = args['github-repo'];
 const authToken = process.env.GITHUB_AUTH_TOKEN;
 
 // Define the headers for the CSV file
-const fields = [
-  'PR #',
-  'Status',
-  'Title',
-  'Link',
-  'Labels',
-  'Description',
-  'Date Merged',
-];
+const fields = ['PR #', 'Status', 'Title', 'Link', 'Labels', 'Description', 'Date Merged'];
 
 // Fetch the merged PRs from the last two weeks
 async function fetchMergedPRsForLastTwoWeeks() {
@@ -132,6 +125,13 @@ async function main() {
   const openPRs = await fetchOpenPRs();
 
   const allPRs = [...mergedPRs, ...openPRs];
+
+  // Create the 'csv_output' directory if it doesn't exist
+  const outputPath = 'csv_output/biweekly_pr_report.csv';
+  const outputDir = path.dirname(outputPath);
+  if (!fs.existsSync(outputDir)) {
+    fs.mkdirSync(outputDir, { recursive: true });
+  }
 
   if (allPRs.length > 0) {
     const parser = new Parser({ fields });
