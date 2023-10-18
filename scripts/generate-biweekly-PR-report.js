@@ -127,7 +127,8 @@ async function main() {
   const allPRs = [...mergedPRs, ...openPRs];
 
   // Create the 'csv_output' directory if it doesn't exist
-  const outputPath = 'csv_output/biweekly_pr_report.csv';
+  const fileName = `${githubUsername}_${githubRepo}_biweekly_pr_report.csv`;
+  const outputPath = 'csv_output/' + fileName;
   const outputDir = path.dirname(outputPath);
   if (!fs.existsSync(outputDir)) {
     fs.mkdirSync(outputDir, { recursive: true });
@@ -137,8 +138,8 @@ async function main() {
     const parser = new Parser({ fields });
     const csv = parser.parse(allPRs);
 
-    fs.writeFileSync('csv_output/biweekly_pr_report.csv', csv);
-    console.log('CSV file created: biweekly_pr_report.csv');
+    fs.writeFileSync(outputPath, csv);
+    console.log(`CSV file created: ${fileName}`);
   } else {
     console.log('No PRs found in the specified time range.');
   }
