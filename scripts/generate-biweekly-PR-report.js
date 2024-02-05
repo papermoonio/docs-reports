@@ -10,6 +10,8 @@ require('dotenv').config();
 const args = yargs.options({
   'github-username': { type: 'string', demandOption: true, alias: 'u' },
   'github-repo': { type: 'string', demandOption: true, alias: 'r' },
+  from: { type: 'string', demandOption: false, alias: 'f' },
+  to: { type: 'string', demandOption: false, alias: 't' },
 }).argv;
 
 const githubUsername = args['github-username'];
@@ -19,13 +21,25 @@ const authToken = process.env.GITHUB_AUTH_TOKEN;
 // Define the headers for the CSV file
 const fields = ['PR #', 'Title', 'Status', 'Labels', 'Link', 'Description', 'Date Merged'];
 
-// Fetch the merged PRs from the last two weeks
-async function fetchMergedPRsForLastTwoWeeks() {
+// Fetch the merged PRs
+async function fetchMergedPRs() {
   try {
-    // Calculate the date range for the last two weeks
+    let dateStart;
+    let dateEnd;
     const now = new Date();
-    const lastTwoWeeksStart = subWeeks(startOfDay(now), 2); // Start of the last two weeks
-    const lastTwoWeeksEnd = now; // Current date
+    if (args['from'] && args['to']) {
+      // Calcualte date between to inputs
+      dateStart = new Date(args['from']);
+      dateEnd = new Date(args['to']);
+    } else if (args['from']) {
+      // Calculate date from given input to now
+      dateStart = new Date(args['from']);
+      dateEnd = now;
+    } else {
+      // Calculate the date range for the last two weeks
+      dateStart = subWeeks(startOfDay(now), 2); // Start of the last two weeks
+      dateEnd = now; // Current date
+    }
 
     const response = await axios.get(
       `https://api.github.com/repos/${githubUsername}/${githubRepo}/pulls?state=closed&sort=updated&direction=desc`,
@@ -41,7 +55,7 @@ async function fetchMergedPRsForLastTwoWeeks() {
 
     for (const pr of prs) {
       const mergedDate = new Date(pr.merged_at);
-      if (mergedDate >= lastTwoWeeksStart && mergedDate <= lastTwoWeeksEnd) {
+      if (mergedDate >= dateStart && mergedDate <= dateEnd) {
         const labels = pr.labels.map((label) => label.name).join(', ');
         const description = extractDescription(pr.body);
 
@@ -60,7 +74,7 @@ async function fetchMergedPRsForLastTwoWeeks() {
     // Sort the PRs by the 'Labels' column
     prData.sort((a, b) => (a.Labels < b.Labels ? -1 : 1));
 
-    return prData;
+    return [prData, dateStart, dateEnd];
   } catch (error) {
     console.error('Error fetching PRs:', error);
     return [];
@@ -121,13 +135,15 @@ function extractDescription(body) {
 
 // Main function to fetch data, sort, and create CSV
 async function main() {
-  const mergedPRs = await fetchMergedPRsForLastTwoWeeks();
+  const [mergedPRs, dateStart, dateEnd] = await fetchMergedPRs();
   const openPRs = await fetchOpenPRs();
 
   const allPRs = [...mergedPRs, ...openPRs];
 
   // Create the 'csv_output' directory if it doesn't exist
-  const fileName = `${githubUsername}_${githubRepo}_biweekly_pr_report.csv`;
+  const fileName = `${githubUsername}_${githubRepo}_PR_Report_${dateStart
+    .toISOString()
+    .slice(0, 10)}_${dateEnd.toISOString().slice(0, 10)}.csv`;
   const outputPath = 'csv_output/' + fileName;
   const outputDir = path.dirname(outputPath);
   if (!fs.existsSync(outputDir)) {

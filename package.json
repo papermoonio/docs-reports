@@ -1,7 +1,7 @@
 {
-  "name": "moonbeam-docs-reports",
+  "name": "docs-reports",
   "version": "1.0.0",
-  "description": "Reports for the Moonbeam documentation site",
+  "description": "Reports for the Documentation sites",
   "main": "index.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1"
