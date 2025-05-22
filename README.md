@@ -41,9 +41,9 @@ This script fetches issues and pull requests from a GitHub repository and saves 
    ```bash
    npm install
    ```
-2. Create a `.env` file in the same directory as the script with your GitHub token:
+2. Create a `.env` file with your GitHub token added:
    ```
-   GITHUB_TOKEN=your_github_token_here
+   GITHUB_AUTH_TOKEN=your_github_token_here
    ```
 
 ### How to use
@@ -90,4 +90,66 @@ The output is sorted by date (oldest to newest).
 - axios
 - csv-writer
 - dotenv
+
+## CSV Description Improver
+
+This script calls the AI model with your preferred options; It sends the CSV file to the AI model and it updated the description column with the new description
+
+### Prerequisites
+
+- OpenAI API key // or any other AI model provider
+
+### Setup
+
+1. Make sure you have the required dependencies installed:
+   ```bash
+   npm install
+   ```
+2. Create a `.env` file with your OpenAI API key added:
+   ```
+   OPENAI_API_KEY=your_openai_api_key_here
+   ```
+
+### How to use
+
+Run the script using the following command:
+
+```bash
+node scripts/csv-improve.js <input_csv_file>
+```
+
+#### Parameters:
+
+- `input_csv_file`: The path to the CSV file you want to improve
+
+#### Example:
+
+```bash
+node scripts/csv-improve.js output.csv
+```
+
+### What it does
+
+The script will:
+1. Read the specified CSV file
+2. Send the content to OpenAI's API
+3. Generate improved, concise descriptions (under 30 words)
+4. Save the updated CSV back to the same file
+
+### Configurable Variables
+
+You can modify the following variables in the `scripts/csv-improve.js` file:
+
+- `API_URL`: The endpoint URL for the AI model API (default: 'https://api.openai.com/v1/chat/completions')
+- `PROMPT`: The instruction template for the AI model. You can customize this field to change the instruction for the AI model
+- `model`: The AI model to use (default: 'gpt-3.5-turbo')
+- `temperature`: Controls the randomness of the output (default: 0.2)
+  - Lower values (like 0.2) make the output more focused and deterministic
+  - Higher values (up to 1.0) make the output more creative but less predictable
+
+### Dependencies
+
+- axios
+- dotenv
+- OpenAI API access
 
