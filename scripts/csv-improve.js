@@ -35,7 +35,7 @@ Only respond with CSV, no explanation or extra text.
       },
       {
         headers: {
-          Authorization: `Bearer ${process.env.API_KEY}`,
+          Authorization: `Bearer ${process.env.OPENAI_API_KEY}`,
           'Content-Type': 'application/json'
         }
       }

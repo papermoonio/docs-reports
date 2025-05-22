@@ -107,7 +107,7 @@ This script calls the AI model with your preferred options; It sends the CSV fil
    ```
 2. Create a `.env` file with your OpenAI API key added:
    ```
-   API_KEY=your_openai_api_key_here
+   OPENAI_API_KEY=your_openai_api_key_here
    ```
 
 ### How to use
