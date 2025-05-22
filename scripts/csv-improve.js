@@ -2,7 +2,7 @@ require('dotenv').config();
 const fs = require('fs');
 const axios = require('axios');
 
-const API_URL = 'https://api.openai.com/v1/chat/completions';
+const API_URL = 'https://api.kluster.ai/v1/chat/completions';
 const fileName = process.argv[2];
 
 if (!fileName) {
@@ -26,7 +26,7 @@ Only respond with CSV, no explanation or extra text.
     const response = await axios.post(
       API_URL,
       {
-        model: 'gpt-3.5-turbo',
+        model: 'meta-llama/Llama-4-Maverick-17B-128E-Instruct-FP8',
         messages: [
           { role: 'system', content: 'You are a CSV-enhancing assistant.' },
           { role: 'user', content: `${PROMPT}\n\n${csvInput}` }
