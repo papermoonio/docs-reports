@@ -140,9 +140,9 @@ The script will:
 
 You can modify the following variables in the `scripts/csv-improve.js` file:
 
-- `API_URL`: The endpoint URL for the AI model API (default: 'https://api.openai.com/v1/chat/completions')
+- `API_URL`: The endpoint URL for the AI model API (default: 'https://api.kluster.ai/v1/chat/completions')
 - `PROMPT`: The instruction template for the AI model. You can customize this field to change the instruction for the AI model
-- `model`: The AI model to use (default: 'gpt-3.5-turbo')
+- `model`: The AI model to use (default: 'meta-llama/Llama-4-Maverick-17B-128E-Instruct-FP8')
 - `temperature`: Controls the randomness of the output (default: 0.2)
   - Lower values (like 0.2) make the output more focused and deterministic
   - Higher values (up to 1.0) make the output more creative but less predictable
