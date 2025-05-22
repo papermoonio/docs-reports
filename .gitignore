@@ -1,5 +1,4 @@
 .env
 node_modules
 csv_output
-hardhat_info.csv
-contracts_info.csv
+*.csv
