@@ -153,3 +153,23 @@ You can modify the following variables in the `scripts/csv-improve.js` file:
 - dotenv
 - OpenAI API access
 
+## Quick Start
+
+Run both PR indexer and CSV improver in one command:
+
+```bash
+# Make script executable
+chmod +x scripts/generate-and-improve.sh
+
+# Run with repository URL
+./scripts/generate-and-improve.sh https://github.com/username/repo
+
+# Run with authors
+./scripts/generate-and-improve.sh https://github.com/username/repo "author1,author2"
+
+# Run with custom output file
+./scripts/generate-and-improve.sh https://github.com/username/repo "author1,author2" output.csv
+```
+
+Note: Make sure your `.env` file has the required API keys.
+
