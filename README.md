@@ -141,10 +141,7 @@ The script will:
 You can modify the following variables in the `scripts/csv-improve.js` file:
 
 - `API_URL`: The endpoint URL for the AI model API (default: 'https://api.openai.com/v1/chat/completions')
-- `PROMPT`: The instruction template for the AI model. You can customize:
-  - The word limit for descriptions (currently set to 30 words)
-  - The specific instructions for description generation
-  - The format of the output
+- `PROMPT`: The instruction template for the AI model. You can customize this field to change the instruction for the AI model
 - `model`: The AI model to use (default: 'gpt-3.5-turbo')
 - `temperature`: Controls the randomness of the output (default: 0.2)
   - Lower values (like 0.2) make the output more focused and deterministic
