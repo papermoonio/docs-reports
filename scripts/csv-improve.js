@@ -2,7 +2,8 @@ require('dotenv').config();
 const fs = require('fs');
 const axios = require('axios');
 
-const API_URL = 'https://api.kluster.ai/v1/chat/completions';
+const API_URL = process.env.API_URL || 'https://api.kluster.ai/v1/chat/completions';
+const AI_MODEL = process.env.AI_MODEL || 'meta-llama/Llama-4-Maverick-17B-128E-Instruct-FP8';
 const fileName = process.argv[2];
 const promptName = process.argv[3];
 
@@ -76,7 +77,7 @@ const PROMPT = getPrompt(promptName);
     const response = await axios.post(
       API_URL,
       {
-        model: 'meta-llama/Llama-4-Maverick-17B-128E-Instruct-FP8',
+        model: AI_MODEL,
         messages: [
           { role: 'system', content: 'You are a CSV-enhancing assistant.' },
           { role: 'user', content: `${PROMPT}\n\n${csvInput}` }
