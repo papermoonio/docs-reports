@@ -78,21 +78,47 @@ async function enrichPRWithReviewers(owner, repo, item) {
     return item;
   }
   
-  try {
-    const prNumber = item.number;
-    const prUrl = `https://api.github.com/repos/${owner}/${repo}/pulls/${prNumber}`;
-    const { data: prData } = await axios.get(prUrl, { headers });
-    
-    // Merge the PR-specific data with the original item
-    return {
-      ...item,
-      requested_reviewers: prData.requested_reviewers || [],
-      requested_teams: prData.requested_teams || []
-    };
-  } catch (error) {
-    console.warn(`Failed to fetch PR details for #${item.number}:`, error.message);
-    return item; // Return original item if we can't get PR details
+  const prNumber = item.number;
+  const maxRetries = 3;
+  const baseDelay = 1000; // 1 second
+  
+  for (let attempt = 1; attempt <= maxRetries; attempt++) {
+    try {
+      const prUrl = `https://api.github.com/repos/${owner}/${repo}/pulls/${prNumber}`;
+      const { data: prData } = await axios.get(prUrl, { headers });
+      
+      // Merge the PR-specific data with the original item
+      return {
+        ...item,
+        requested_reviewers: prData.requested_reviewers || [],
+        requested_teams: prData.requested_teams || []
+      };
+    } catch (error) {
+      const status = error.response?.status;
+      
+      if (status === 503) {
+        // Service unavailable - retry with exponential backoff
+        if (attempt < maxRetries) {
+          const delay = baseDelay * Math.pow(2, attempt - 1);
+          console.warn(`⚠️  Service unavailable for PR #${prNumber}, retrying in ${delay}ms (attempt ${attempt}/${maxRetries})`);
+          await new Promise(resolve => setTimeout(resolve, delay));
+          continue;
+        } else {
+          console.warn(`❌ Service unavailable for PR #${prNumber} after ${maxRetries} attempts, skipping`);
+        }
+      } else if (status === 403) {
+        console.warn(`⚠️  No access to PR #${prNumber} (403 - insufficient permissions)`);
+      } else if (status === 404) {
+        console.warn(`⚠️  PR #${prNumber} not found (404)`);
+      } else {
+        console.warn(`Failed to fetch PR details for #${prNumber}: ${error.message}`);
+      }
+      
+      return item; // Return original item if we can't get PR details
+    }
   }
+  
+  return item; // Fallback return
 }
 
 async function getAllIssuesAndPRs(owner, repo) {
@@ -127,8 +153,18 @@ async function getAllIssuesAndPRs(owner, repo) {
   return all;
 }
 
-async function writeToCSV(data, outputPath) {
+async function writeToCSV(data, outputPath, formatString = null) {
   console.log(`Writing ${data.length} items to CSV...`);
+  
+  // Parse the column format
+  const headers = parseColumnFormat(formatString);
+  
+  // Log format information
+  if (formatString) {
+    console.log(`📋 Using custom format: ${headers.map(h => h.title).join(', ')}`);
+  } else {
+    console.log('📋 Using default format (all columns)');
+  }
   
   // Log the first item's data to verify content
   if (data.length > 0) {
@@ -142,18 +178,7 @@ async function writeToCSV(data, outputPath) {
 
   const csvWriter = createObjectCsvWriter({
     path: outputPath,
-    header: [
-      { id: 'repository', title: 'Repository' },
-      { id: 'dateOpened', title: 'Date Opened' },
-      { id: 'url', title: 'Issue/PR URL' },
-      { id: 'title', title: 'Title' },
-      { id: 'description', title: 'Description' },
-      { id: 'status', title: 'Status' },
-      { id: 'issueType', title: 'Issue Type' },
-      { id: 'author', title: 'Author' },
-      { id: 'assignees', title: 'Assignees' },
-      { id: 'reviewers', title: 'Reviewers' },
-    ],
+    header: headers,
     fieldDelimiter: ',',
     recordDelimiter: '\n',
     alwaysQuote: true, // This ensures all fields are properly quoted
@@ -256,7 +281,7 @@ async function processRepository(owner, repo, authorsCSV, statusFilter) {
 }
 
 async function main() {
-  const [,, repoInput, outputCSV, authorsCSV, statusFilter] = process.argv;
+  const [,, repoInput, outputCSV, authorsCSV, formatConfig, statusFilter] = process.argv;
 
   // Check if we should use environment variables (when only output file is provided)
   if (repoInput && !outputCSV && repoInput.endsWith('.csv')) {
@@ -277,7 +302,7 @@ async function main() {
     console.log(`   Output: ${outputFile}`);
     console.log('');
     
-    await processWithConfig(envRepos, outputFile, envAuthors, undefined);
+    await processWithConfig(envRepos, outputFile, envAuthors, undefined, undefined);
     return;
   }
   
@@ -296,7 +321,7 @@ async function main() {
     
     if (!outputCSV) {
       console.error('❌ Output CSV file required when using ENV: shortcuts');
-      console.error(`💡 Usage: node pr-indexer.js ENV:${configName.toLowerCase()} output.csv`);
+      console.error(`💡 Usage: node pr-indexer.js ENV:${configName} output.csv`);
       return;
     }
     
@@ -306,17 +331,17 @@ async function main() {
     console.log(`   Output: ${outputCSV}`);
     console.log('');
     
-    await processWithConfig(envRepos, outputCSV, envAuthors, statusFilter);
+    await processWithConfig(envRepos, outputCSV, envAuthors, undefined, statusFilter);
     return;
   }
 
   // Standard usage validation
   if (!repoInput || !outputCSV) {
-    console.error('Usage: node pr-indexer.js <repo_input> <output_csv_path> [authors] [status_filter]');
+    console.error('Usage: node pr-indexer.js <repo_input> <output_csv_path> [authors] [format] [status_filter]');
     console.error('');
     console.error('🔧 Environment Variable Shortcuts:');
-    console.error('  node pr-indexer.js <output.csv>                    # Uses DEFAULT_* from .env');
-    console.error('  node pr-indexer.js ENV:<config> <output.csv>       # Uses <CONFIG>_* from .env');
+    console.error('  node pr-indexer.js <output.csv>                           # Uses DEFAULT_* from .env');
+    console.error('  node pr-indexer.js ENV:<config> <output.csv>              # Uses <CONFIG>_* from .env');
     console.error('');
     listAvailableConfigs();
     console.error('');
@@ -326,18 +351,20 @@ async function main() {
     console.error('  - Multiple repos: "owner1/repo1,owner2/repo2,owner3/repo3"');
     console.error('');
     console.error('authors (optional): Comma-separated list of GitHub usernames');
+    console.error('format (optional): Column format or ENV:FORMAT_NAME shortcut');
     console.error('status_filter (optional): Comma-separated list of statuses');
     console.error('  - Available statuses: open, closed, merged');
     console.error('');
     console.error('Examples:');
-    console.error('  node pr-indexer.js team_report.csv                                    # Use DEFAULT_* config');
-    console.error('  node pr-indexer.js ENV:moonbeam moonbeam_report.csv                   # Use MOONBEAM_* config');
-    console.error('  node pr-indexer.js ENV:polkadot polkadot_open.csv "" "open"          # With status filter');
-    console.error('  node pr-indexer.js "owner/repo" manual_output.csv "author1,author2"  # Manual mode');
+    console.error('  node pr-indexer.js team_report.csv                                         # Use DEFAULT_* config');
+    console.error('  node pr-indexer.js ENV:moonbeam moonbeam_report.csv                        # Use MOONBEAM_* config');
+    console.error('  node pr-indexer.js "owner/repo" output.csv "" "ENV:MINIMAL"               # With custom format');
+    console.error('  node pr-indexer.js ENV:polkadot polkadot_open.csv "" "" "open"            # With status filter');
+    console.error('  node pr-indexer.js "owner/repo" manual_output.csv "author1,author2"       # Manual mode');
     return;
   }
 
-  await processWithConfig(repoInput, outputCSV, authorsCSV, statusFilter);
+  await processWithConfig(repoInput, outputCSV, authorsCSV, formatConfig, statusFilter);
 }
 
 function listAvailableConfigs() {
@@ -357,7 +384,90 @@ function listAvailableConfigs() {
   }
 }
 
-async function processWithConfig(repoInput, outputCSV, authorsCSV, statusFilter) {
+function resolveEnvValue(input, type) {
+  if (!input || !input.startsWith('ENV:')) {
+    return input;
+  }
+  
+  const configName = input.replace('ENV:', '').toUpperCase();
+  const envVar = type === 'format' ? `FORMAT_${configName}` : `${configName}_${type.toUpperCase()}`;
+  const value = process.env[envVar];
+  
+  if (!value) {
+    console.error(`❌ ${envVar} not found in .env file`);
+    if (type === 'format') {
+      console.error(`💡 Add ${envVar}="column1,column2,column3" to your .env file`);
+      listAvailableFormats();
+    }
+    return null;
+  }
+  
+  return value;
+}
+
+function listAvailableFormats() {
+  console.error('');
+  console.error('📋 Available format configurations:');
+  const availableFormats = Object.keys(process.env)
+    .filter(key => key.startsWith('FORMAT_'))
+    .map(key => key.replace('FORMAT_', ''));
+  
+  if (availableFormats.length > 0) {
+    availableFormats.forEach(format => {
+      const columns = process.env[`FORMAT_${format}`];
+      console.error(`   - ENV:${format} → ${columns}`);
+    });
+  } else {
+    console.error('   No format configurations found in .env file');
+  }
+  console.error('');
+}
+
+function parseColumnFormat(formatString) {
+  if (!formatString) {
+    // Default format with all columns
+    return [
+      { id: 'repository', title: 'Repository' },
+      { id: 'dateOpened', title: 'Date Opened' },
+      { id: 'url', title: 'Issue/PR URL' },
+      { id: 'title', title: 'Title' },
+      { id: 'description', title: 'Description' },
+      { id: 'status', title: 'Status' },
+      { id: 'issueType', title: 'Issue Type' },
+      { id: 'author', title: 'Author' },
+      { id: 'assignees', title: 'Assignees' },
+      { id: 'reviewers', title: 'Reviewers' }
+    ];
+  }
+  
+  const columnMapping = {
+    'Repository': { id: 'repository', title: 'Repository' },
+    'Date Opened': { id: 'dateOpened', title: 'Date Opened' },
+    'Issue/PR URL': { id: 'url', title: 'Issue/PR URL' },
+    'Title': { id: 'title', title: 'Title' },
+    'Description': { id: 'description', title: 'Description' },
+    'Status': { id: 'status', title: 'Status' },
+    'Issue Type': { id: 'issueType', title: 'Issue Type' },
+    'Author': { id: 'author', title: 'Author' },
+    'Assignees': { id: 'assignees', title: 'Assignees' },
+    'Reviewers': { id: 'reviewers', title: 'Reviewers' }
+  };
+  
+  const requestedColumns = formatString.split(',').map(col => col.trim());
+  const headers = [];
+  
+  requestedColumns.forEach(columnName => {
+    if (columnMapping[columnName]) {
+      headers.push(columnMapping[columnName]);
+    } else {
+      console.warn(`⚠️  Unknown column: ${columnName}`);
+    }
+  });
+  
+  return headers;
+}
+
+async function processWithConfig(repoInput, outputCSV, authorsCSV, formatConfig, statusFilter) {
   const repositories = parseRepoInput(repoInput);
   
   if (repositories.length === 0) {
@@ -390,7 +500,11 @@ async function processWithConfig(repoInput, outputCSV, authorsCSV, statusFilter)
     console.log(`\n📊 Total items collected: ${allData.length}`);
     
     if (allData.length > 0) {
-      await writeToCSV(allData, outputCSV);
+      // Resolve format configuration
+      let columnFormat = resolveEnvValue(formatConfig, 'format');
+      
+      // Write to CSV with custom format
+      await writeToCSV(allData, outputCSV, columnFormat);
       console.log(`\n✅ Successfully processed ${repositories.length} repository(ies)`);
       console.log(`📄 Combined data saved to: ${outputCSV}`);
     } else {

@@ -25,6 +25,19 @@ Scripts for generating and enhancing GitHub repository reports with AI-powered i
    DEFAULT_REPOS="org/repo1,org/repo2,org/repo3"
    DEFAULT_AUTHORS="dev1,dev2,dev3,lead1"
 
+   # Custom Repository/Author Configurations (optional)
+   MOONBEAM_REPOS="moonbeam-foundation/moonbeam,moonbeam-foundation/moonbeam-docs"
+   MOONBEAM_AUTHORS="author1,author2,author3"
+   
+   POLKADOT_REPOS="paritytech/polkadot,paritytech/substrate"
+   POLKADOT_AUTHORS="dev1,dev2"
+
+   # Column Format Configurations (customize CSV output)
+   FORMAT_DEFAULT="Repository,Date Opened,Issue/PR URL,Title,Description,Status,Issue Type,Author"
+   FORMAT_MINIMAL="Title,Author,Status,Issue/PR URL"
+   FORMAT_DETAILED="Repository,Date Opened,Title,Description,Status,Author,Assignees,Reviewers"
+   FORMAT_TRACKING="Title,Author,Status,Date Opened,Assignees"
+
    # AI Prompts for CSV Enhancement (customize as needed)
    PROMPT_DEFAULT="Generate concise descriptions under 15 words based on the content. Return full CSV with updated description field only."
    PROMPT_TECHNICAL="Rewrite descriptions using technical terminology and precise language. Keep under 20 words. Return full CSV with updated description field only."
@@ -85,7 +98,7 @@ node scripts/generate-PR-report.js -u ethereum -r go-ethereum -s 2025-01-01 -t 2
 
 ### Usage
 ```bash
-node scripts/pr-indexer.js <repo_input> <output_csv> [authors] [status_filter]
+node scripts/pr-indexer.js <repo_input> <output_csv> [authors] [format] [status_filter]
 ```
 
 ### Parameters
@@ -94,7 +107,54 @@ node scripts/pr-indexer.js <repo_input> <output_csv> [authors] [status_filter]
 | `repo_input` | Repository specification | See formats below | ✅ |
 | `output_csv` | Output CSV file path | `path/to/file.csv` | ✅ |
 | `authors` | Filter by specific authors | `"user1,user2,user3"` | ❌ |
+| `format` | Column format specification | See column formats below | ❌ |
 | `status_filter` | Filter by status | `"open,closed,merged"` | ❌ |
+
+### Environment Variable Shortcuts
+The script supports convenient shortcuts using environment variables:
+
+```bash
+# Zero-config: Use DEFAULT_* settings from .env
+node scripts/pr-indexer.js output.csv
+
+# Named configurations: Use CONFIG_* settings from .env  
+node scripts/pr-indexer.js ENV:moonbeam output.csv
+node scripts/pr-indexer.js ENV:polkadot output.csv
+```
+
+### Column Format Specification
+Control which columns appear in your CSV output:
+
+#### Built-in Formats (define in .env):
+```env
+FORMAT_DEFAULT="Repository,Date Opened,Issue/PR URL,Title,Description,Status,Issue Type,Author"
+FORMAT_MINIMAL="Title,Author,Status,Issue/PR URL"
+FORMAT_DETAILED="Repository,Date Opened,Title,Description,Status,Author,Assignees,Reviewers"
+```
+
+#### Usage Examples:
+```bash
+# Use custom column selection
+node scripts/pr-indexer.js "owner/repo" output.csv "" "Title,Author,Status"
+
+# Use predefined format from .env
+node scripts/pr-indexer.js "owner/repo" output.csv "" "ENV:MINIMAL"
+
+# Environment shortcut with custom format
+node scripts/pr-indexer.js ENV:moonbeam output.csv "" "ENV:DETAILED"
+```
+
+#### Available Columns:
+- `Repository` - Repository name
+- `Date Opened` - When issue/PR was created
+- `Issue/PR URL` - Direct link to the item
+- `Title` - Issue/PR title
+- `Description` - Issue/PR body/description
+- `Status` - Current status (open/closed/merged)
+- `Issue Type` - Type (Issue/Pull Request)
+- `Author` - Creator of the issue/PR
+- `Assignees` - Assigned users
+- `Reviewers` - PR reviewers
 
 ### Repository Input Formats
 ```bash
@@ -114,27 +174,38 @@ node scripts/pr-indexer.js <repo_input> <output_csv> [authors] [status_filter]
 
 ### Examples
 ```bash
+# Environment variable shortcuts (recommended)
+node scripts/pr-indexer.js output.csv                                    # Use DEFAULT_* config
+node scripts/pr-indexer.js ENV:moonbeam moonbeam_report.csv              # Use MOONBEAM_* config
+
 # All issues/PRs from single repo
 node scripts/pr-indexer.js "paritytech/substrate" all_items.csv
 
-# Multiple repos with author filtering
+# Multiple repos with author filtering  
 node scripts/pr-indexer.js "parity/substrate,parity/polkadot" team_work.csv "alice,bob,charlie"
 
-# Open items only
-node scripts/pr-indexer.js "ethereum/go-ethereum" open_items.csv "" "open"
+# Custom column format - minimal output
+node scripts/pr-indexer.js "ethereum/go-ethereum" minimal.csv "" "Title,Author,Status"
+
+# Use predefined format from .env
+node scripts/pr-indexer.js "microsoft/vscode" detailed.csv "" "ENV:DETAILED"
+
+# Open items only with custom format
+node scripts/pr-indexer.js "facebook/react" open_items.csv "" "ENV:MINIMAL" "open"
 
 # Merged PRs from specific authors
-node scripts/pr-indexer.js "microsoft/vscode" merged_prs.csv "john,jane" "merged"
+node scripts/pr-indexer.js "microsoft/vscode" merged_prs.csv "john,jane" "" "merged"
 
-# Multiple status types
-node scripts/pr-indexer.js "facebook/react" active_items.csv "" "open,merged"
+# Multiple status types with detailed format
+node scripts/pr-indexer.js "facebook/react" active_items.csv "" "ENV:DETAILED" "open,merged"
 
-# Complex filtering
-node scripts/pr-indexer.js "owner1/repo1,owner2/repo2" filtered.csv "dev1,dev2" "open,closed"
+# Complex filtering with environment shortcut
+node scripts/pr-indexer.js ENV:polkadot complex.csv "" "ENV:MINIMAL" "open,closed"
 ```
 
 ### Output
-CSV with columns: Repository, Date Opened, Issue/PR URL, Title, Description, Status, Issue Type, Author, Assignees, Reviewers
+Default CSV columns: Repository, Date Opened, Issue/PR URL, Title, Description, Status, Issue Type, Author, Assignees, Reviewers
+Custom formats can include any subset of these columns in any order.
 
 ---
 
