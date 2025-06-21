@@ -72,6 +72,26 @@ function filterByStatus(items, statusFilter) {
   return filtered;
 }
 
+function filterByType(items, typeFilter) {
+  if (!typeFilter) return items;
+
+  const type = typeFilter.trim().toLowerCase();
+  let filtered;
+  
+  if (type === 'pr') {
+    filtered = items.filter(item => item.pull_request);
+  } else if (type === 'issue') {
+    filtered = items.filter(item => !item.pull_request);
+  } else {
+    console.error(`❌ Invalid type filter: ${typeFilter}`);
+    console.error('💡 Valid options: "pr", "issue"');
+    return items;
+  }
+  
+  console.log(`Filtered ${items.length} items to ${filtered.length} items for type: ${type}`);
+  return filtered;
+}
+
 async function enrichPRWithReviewers(owner, repo, item) {
   // Only fetch additional data for PRs
   if (!item.pull_request) {
@@ -239,7 +259,7 @@ function parseRepoInput(input) {
   return parsedRepos;
 }
 
-async function processRepository(owner, repo, authorsCSV, statusFilter) {
+async function processRepository(owner, repo, authorsCSV, statusFilter, typeFilter) {
   console.log(`\n📁 Processing repository: ${owner}/${repo}`);
   
   try {
@@ -262,7 +282,11 @@ async function processRepository(owner, repo, authorsCSV, statusFilter) {
     const statusFiltered = filterByStatus(enrichedData, statusFilter);
     console.log(`   Status filtered to ${statusFiltered.length} items`);
     
-    const authorFiltered = filterByAuthors(statusFiltered, authorsCSV);
+    // Apply type filtering
+    const typeFiltered = filterByType(statusFiltered, typeFilter);
+    console.log(`   Type filtered to ${typeFiltered.length} items`);
+    
+    const authorFiltered = filterByAuthors(typeFiltered, authorsCSV);
     console.log(`   Author filtered to ${authorFiltered.length} items`);
     
     const simplified = authorFiltered.map(item => {
@@ -281,7 +305,7 @@ async function processRepository(owner, repo, authorsCSV, statusFilter) {
 }
 
 async function main() {
-  const [,, repoInput, outputCSV, authorsCSV, formatConfig, statusFilter] = process.argv;
+  const [,, repoInput, outputCSV, authorsCSV, formatConfig, statusFilter, typeFilter] = process.argv;
 
   // Check if we should use environment variables (when only output file is provided)
   if (repoInput && !outputCSV && repoInput.endsWith('.csv')) {
@@ -302,7 +326,7 @@ async function main() {
     console.log(`   Output: ${outputFile}`);
     console.log('');
     
-    await processWithConfig(envRepos, outputFile, envAuthors, undefined, undefined);
+    await processWithConfig(envRepos, outputFile, envAuthors, undefined, undefined, undefined);
     return;
   }
   
@@ -331,13 +355,13 @@ async function main() {
     console.log(`   Output: ${outputCSV}`);
     console.log('');
     
-    await processWithConfig(envRepos, outputCSV, envAuthors, undefined, statusFilter);
+    await processWithConfig(envRepos, outputCSV, envAuthors, formatConfig, statusFilter, typeFilter);
     return;
   }
 
   // Standard usage validation
   if (!repoInput || !outputCSV) {
-    console.error('Usage: node pr-indexer.js <repo_input> <output_csv_path> [authors] [format] [status_filter]');
+    console.error('Usage: node pr-indexer.js <repo_input> <output_csv_path> [authors] [format] [status_filter] [type_filter]');
     console.error('');
     console.error('🔧 Environment Variable Shortcuts:');
     console.error('  node pr-indexer.js <output.csv>                           # Uses DEFAULT_* from .env');
@@ -354,17 +378,20 @@ async function main() {
     console.error('format (optional): Column format or ENV:FORMAT_NAME shortcut');
     console.error('status_filter (optional): Comma-separated list of statuses');
     console.error('  - Available statuses: open, closed, merged');
+    console.error('type_filter (optional): Filter by item type');
+    console.error('  - Available types: pr, issue');
     console.error('');
     console.error('Examples:');
     console.error('  node pr-indexer.js team_report.csv                                         # Use DEFAULT_* config');
     console.error('  node pr-indexer.js ENV:moonbeam moonbeam_report.csv                        # Use MOONBEAM_* config');
     console.error('  node pr-indexer.js "owner/repo" output.csv "" "ENV:MINIMAL"               # With custom format');
     console.error('  node pr-indexer.js ENV:polkadot polkadot_open.csv "" "" "open"            # With status filter');
+    console.error('  node pr-indexer.js ENV:polkadot polkadot_prs.csv "" "" "open" "pr"        # Only open PRs');
     console.error('  node pr-indexer.js "owner/repo" manual_output.csv "author1,author2"       # Manual mode');
     return;
   }
 
-  await processWithConfig(repoInput, outputCSV, authorsCSV, formatConfig, statusFilter);
+  await processWithConfig(repoInput, outputCSV, authorsCSV, formatConfig, statusFilter, typeFilter);
 }
 
 function listAvailableConfigs() {
@@ -390,7 +417,14 @@ function resolveEnvValue(input, type) {
   }
   
   const configName = input.replace('ENV:', '').toUpperCase();
-  const envVar = type === 'format' ? `FORMAT_${configName}` : `${configName}_${type.toUpperCase()}`;
+  let envVar;
+  
+  if (type === 'format' || type === 'authors') {
+    envVar = `FORMAT_${configName}`;
+  } else {
+    envVar = `${configName}_${type.toUpperCase()}`;
+  }
+  
   const value = process.env[envVar];
   
   if (!value) {
@@ -398,6 +432,8 @@ function resolveEnvValue(input, type) {
     if (type === 'format') {
       console.error(`💡 Add ${envVar}="column1,column2,column3" to your .env file`);
       listAvailableFormats();
+    } else if (type === 'authors') {
+      console.error(`💡 Add ${envVar}="author1,author2,author3" to your .env file`);
     }
     return null;
   }
@@ -467,7 +503,7 @@ function parseColumnFormat(formatString) {
   return headers;
 }
 
-async function processWithConfig(repoInput, outputCSV, authorsCSV, formatConfig, statusFilter) {
+async function processWithConfig(repoInput, outputCSV, authorsCSV, formatConfig, statusFilter, typeFilter) {
   const repositories = parseRepoInput(repoInput);
   
   if (repositories.length === 0) {
@@ -480,12 +516,19 @@ async function processWithConfig(repoInput, outputCSV, authorsCSV, formatConfig,
     console.log(`   - ${owner}/${repo}`);
   });
 
+  // Resolve ENV: shortcuts for authors
   if (authorsCSV) {
+    authorsCSV = resolveEnvValue(authorsCSV, 'authors');
+    if (!authorsCSV) return; // Exit if ENV resolution failed
     console.log(`👥 Filtering by authors: ${authorsCSV}`);
   }
   
   if (statusFilter) {
     console.log(`📊 Filtering by status: ${statusFilter}`);
+  }
+  
+  if (typeFilter) {
+    console.log(`🔍 Filtering by type: ${typeFilter}`);
   }
 
   try {
@@ -493,7 +536,7 @@ async function processWithConfig(repoInput, outputCSV, authorsCSV, formatConfig,
     
     // Process each repository
     for (const { owner, repo } of repositories) {
-      const repoData = await processRepository(owner, repo, authorsCSV, statusFilter);
+      const repoData = await processRepository(owner, repo, authorsCSV, statusFilter, typeFilter);
       allData.push(...repoData);
     }
 
