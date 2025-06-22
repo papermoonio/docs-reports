@@ -419,7 +419,7 @@ function resolveEnvValue(input, type) {
   const configName = input.replace('ENV:', '').toUpperCase();
   let envVar;
   
-  if (type === 'format' || type === 'authors') {
+  if (type === 'format') {
     envVar = `FORMAT_${configName}`;
   } else {
     envVar = `${configName}_${type.toUpperCase()}`;
