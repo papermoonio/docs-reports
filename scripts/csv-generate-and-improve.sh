@@ -14,7 +14,7 @@ load_env
 
 # Function to show usage
 show_usage() {
-    echo "Usage: ./csv-generate-and-improve.sh [repo_url] [authors] [output_file] [prompt_name] [status_filter]"
+    echo "Usage: ./csv-generate-and-improve.sh [repo_url] [authors] [output_file] [prompt_name] [status_filter] [type_filter]"
     echo ""
     echo "Parameters (all optional when using .env defaults):"
     echo "  repo_url:      Single repo (owner/repo), multiple repos (repo1,repo2), or ENV:config"
@@ -22,6 +22,7 @@ show_usage() {
     echo "  output_file:   Output CSV filename (default: output.csv)" 
     echo "  prompt_name:   AI prompt name from .env (default: DEFAULT)"
     echo "  status_filter: Comma-separated list: open,closed,merged"
+    echo "  type_filter:   Filter by type: pr, issue (default: both)"
     echo ""
     echo "Environment-driven usage (no arguments):"
     echo "  ./csv-generate-and-improve.sh              # Uses DEFAULT_REPOS, DEFAULT_AUTHORS, etc."
@@ -29,7 +30,7 @@ show_usage() {
     echo "Command-line usage:"
     echo "  ./csv-generate-and-improve.sh \"org/repo\""
     echo "  ./csv-generate-and-improve.sh \"org/repo\" \"author1,author2\" custom.csv TECHNICAL"
-    echo "  ./csv-generate-and-improve.sh ENV:moonbeam \"\" output.csv CATEGORIZE \"open\""
+    echo "  ./csv-generate-and-improve.sh ENV:PAPERMOON \"\" output.csv CATEGORIZE \"open\" \"pr\""
     echo ""
     echo "Environment configurations available:"
     if [ -n "$DEFAULT_REPOS" ]; then
@@ -57,6 +58,7 @@ if [ $# -eq 0 ]; then
     OUTPUT_FILE="output.csv"
     PROMPT_NAME="DEFAULT"
     STATUS_FILTER=""
+    TYPE_FILTER=""
 elif [ "$1" = "--help" ] || [ "$1" = "-h" ]; then
     show_usage
     exit 0
@@ -67,6 +69,7 @@ else
     OUTPUT_FILE=${3:-"output.csv"}
     PROMPT_NAME=${4:-"DEFAULT"}
     STATUS_FILTER=${5:-""}
+    TYPE_FILTER=${6:-""}
 fi
 
 echo "🚀 Generating CSV from repositories: $REPO_URL"
@@ -74,19 +77,26 @@ if [ -n "$AUTHORS" ]; then
     echo "👥 Filtering by authors: $AUTHORS"
 fi
 if [ -n "$STATUS_FILTER" ]; then
-    echo "� Filtering by status: $STATUS_FILTER"
+    echo "🔍 Filtering by status: $STATUS_FILTER"
+fi
+if [ -n "$TYPE_FILTER" ]; then
+    echo "📋 Filtering by type: $TYPE_FILTER"
 fi
 echo "�📄 Output file: $OUTPUT_FILE"
 echo "📝 Using prompt: $PROMPT_NAME"
 echo ""
 
 # Run pr-indexer with all parameters
-if [ -z "$AUTHORS" ] && [ -z "$STATUS_FILTER" ]; then
+# Note: pr-indexer.js expects: repo_input, output_csv, authors_csv, format_config, status_filter, type_filter
+# We pass empty string for format_config since bash script doesn't use it
+if [ -z "$AUTHORS" ] && [ -z "$STATUS_FILTER" ] && [ -z "$TYPE_FILTER" ]; then
     node scripts/pr-indexer.js "$REPO_URL" "$OUTPUT_FILE"
-elif [ -z "$STATUS_FILTER" ]; then
+elif [ -z "$STATUS_FILTER" ] && [ -z "$TYPE_FILTER" ]; then
     node scripts/pr-indexer.js "$REPO_URL" "$OUTPUT_FILE" "$AUTHORS"
+elif [ -z "$TYPE_FILTER" ]; then
+    node scripts/pr-indexer.js "$REPO_URL" "$OUTPUT_FILE" "$AUTHORS" "" "$STATUS_FILTER"
 else
-    node scripts/pr-indexer.js "$REPO_URL" "$OUTPUT_FILE" "$AUTHORS" "$STATUS_FILTER"
+    node scripts/pr-indexer.js "$REPO_URL" "$OUTPUT_FILE" "$AUTHORS" "" "$STATUS_FILTER" "$TYPE_FILTER"
 fi
 
 # Check if pr-indexer succeeded
