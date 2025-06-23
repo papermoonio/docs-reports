@@ -19,11 +19,23 @@ function extractInfo(item) {
   
   // Extract reviewers (for PRs only)
   let reviewers = '';
-  if (item.pull_request && item.requested_reviewers) {
-    const userReviewers = item.requested_reviewers.map(reviewer => reviewer.login);
-    const teamReviewers = item.requested_teams ? item.requested_teams.map(team => `@${team.slug}`) : [];
-    const allReviewers = [...userReviewers, ...teamReviewers];
-    reviewers = allReviewers.join(', ');
+  if (item.pull_request) {
+    const authorLogin = item.user.login;
+    
+    if (item.all_reviewers && item.all_reviewers.length > 0) {
+      // Use the enhanced reviewer data that includes both requested and completed reviews
+      // Filter out the author in case it somehow got included
+      const filteredReviewers = item.all_reviewers.filter(reviewer => reviewer !== authorLogin);
+      reviewers = filteredReviewers.join(', ');
+    } else if (item.requested_reviewers) {
+      // Fallback to requested reviewers only (for items not enriched)
+      const userReviewers = item.requested_reviewers
+        .map(reviewer => reviewer.login)
+        .filter(reviewer => reviewer !== authorLogin); // Filter out author
+      const teamReviewers = item.requested_teams ? item.requested_teams.map(team => `@${team.slug}`) : [];
+      const allReviewers = [...userReviewers, ...teamReviewers];
+      reviewers = allReviewers.join(', ');
+    }
   }
   
   const info = {
@@ -104,14 +116,46 @@ async function enrichPRWithReviewers(owner, repo, item) {
   
   for (let attempt = 1; attempt <= maxRetries; attempt++) {
     try {
+      // Fetch PR details and reviews in parallel
       const prUrl = `https://api.github.com/repos/${owner}/${repo}/pulls/${prNumber}`;
-      const { data: prData } = await axios.get(prUrl, { headers });
+      const reviewsUrl = `https://api.github.com/repos/${owner}/${repo}/pulls/${prNumber}/reviews`;
+      
+      const [prResponse, reviewsResponse] = await Promise.all([
+        axios.get(prUrl, { headers }),
+        axios.get(reviewsUrl, { headers }).catch(err => {
+          // If reviews fetch fails, continue without it
+          console.warn(`⚠️  Could not fetch reviews for PR #${prNumber}: ${err.response?.status}`);
+          return { data: [] };
+        })
+      ]);
+      
+      const prData = prResponse.data;
+      const reviews = reviewsResponse.data || [];
+      
+      // Get unique reviewers from both requested and completed reviews
+      const requestedReviewers = (prData.requested_reviewers || []).map(r => r.login);
+      const requestedTeams = (prData.requested_teams || []).map(t => `@${t.slug}`);
+      
+      // Get reviewers who have actually submitted reviews
+      const completedReviewers = [...new Set(
+        reviews
+          .filter(review => review.user && review.state !== 'PENDING')
+          .map(review => review.user.login)
+      )];
+      
+      // Combine all reviewers (requested + completed), removing duplicates and the author
+      const authorLogin = item.user.login;
+      const allReviewerUsers = [...new Set([...requestedReviewers, ...completedReviewers])]
+        .filter(reviewer => reviewer !== authorLogin); // Remove author from reviewers
+      const allReviewers = [...allReviewerUsers, ...requestedTeams];
       
       // Merge the PR-specific data with the original item
       return {
         ...item,
         requested_reviewers: prData.requested_reviewers || [],
-        requested_teams: prData.requested_teams || []
+        requested_teams: prData.requested_teams || [],
+        reviews: reviews,
+        all_reviewers: allReviewers // New field with complete reviewer list
       };
     } catch (error) {
       const status = error.response?.status;

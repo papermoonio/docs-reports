@@ -117,7 +117,7 @@ const PROMPT = getPrompt(promptName, fileExtension);
           { role: 'system', content: systemMessage },
           { role: 'user', content: `${PROMPT}\n\n${fileInput}` }
         ],
-        temperature: 0.2
+        temperature: 0.1
       },
       {
         headers: {
