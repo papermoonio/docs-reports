@@ -83,7 +83,7 @@ function getPrompt(promptName, fileExtension) {
     console.error('   (No custom prompts found in .env file)');
   }
   console.error('');
-  console.error(`� Falling back to built-in default prompt for .${fileExtension} file`);
+  console.error(`❗ Falling back to built-in default prompt for .${fileExtension} file`);
   
   return getDefaultPromptForFileType(fileExtension);
 }

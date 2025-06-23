@@ -82,7 +82,7 @@ fi
 if [ -n "$TYPE_FILTER" ]; then
     echo "📋 Filtering by type: $TYPE_FILTER"
 fi
-echo "�📄 Output file: $OUTPUT_FILE"
+echo "📄 Output file: $OUTPUT_FILE"
 echo "📝 Using prompt: $PROMPT_NAME"
 echo ""
 
